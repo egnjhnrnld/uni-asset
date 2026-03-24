@@ -1,0 +1,22 @@
+@import "tailwindcss";
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  background-color: #000;
+  color: #d4d4d4;
+}
+
+a {
+  color: #d4d4d4;
+  text-decoration: underline;
+  text-decoration-color: #2a2a2a;
+}
+
+a:hover {
+  text-decoration-color: #525252;
+}
+

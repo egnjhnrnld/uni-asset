@@ -1,0 +1,390 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  UNIVERSITY_ADMIN
+  STAFF
+  REQUESTER
+  TECHNICIAN
+}
+
+enum AssetStatus {
+  DEPLOYABLE
+  CHECKED_OUT
+  MAINTENANCE
+  ARCHIVED
+}
+
+enum AssignedType {
+  USER
+  LOCATION
+}
+
+enum AuditActionType {
+  CHECKOUT
+  CHECKIN
+  UPDATE
+  NOTE
+}
+
+enum ItemType {
+  ASSET
+}
+
+enum TargetType {
+  USER
+  LOCATION
+}
+
+enum WorkOrderType {
+  REPAIR
+  DEPLOY
+  PULLOUT
+  INSPECTION
+}
+
+enum WorkOrderStatus {
+  OPEN
+  IN_PROGRESS
+  DONE
+  CANCELLED
+}
+
+enum WorkLogActionType {
+  REPAIR
+  PULLED_OUT
+  DEPLOYED
+  NOTE
+  FIRMWARE_UPDATE
+  TONER_REPLACED
+  BATTERY_REPLACED
+  INSPECTION
+  CALIBRATION
+  NETWORK_CHANGE
+}
+
+enum LocationKind {
+  LAB
+  OFFICE
+  NETWORK_CLOSET
+  OTHER
+}
+
+enum AssetCategory {
+  LAB_DESKTOP
+  OFFICE_COMPUTER
+  PRINTER
+  UPS
+  AVR
+  NETWORK_SWITCH
+  ROUTER
+  FIREWALL
+  ACCESS_POINT
+  MONITOR
+  OTHER
+}
+
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+enum TicketPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+enum TicketSource {
+  WEB
+  EMAIL
+  PHONE
+  CHAT
+  OTHER
+}
+
+enum TicketEventType {
+  CREATED
+  STATUS_CHANGED
+  PRIORITY_CHANGED
+  ASSIGNED
+  UNASSIGNED
+  LINKED_ASSET
+  UNLINKED_ASSET
+  NOTE
+  COMMENT
+}
+
+model User {
+  id          String   @id @default(cuid())
+  email       String   @unique
+  displayName String?
+  role        Role     @default(STAFF)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  requestedWorkOrders WorkOrder[]    @relation("WorkOrderRequestedBy")
+  assignedWorkOrders  WorkOrder[]    @relation("WorkOrderAssignedTo")
+  auditEvents         AuditEvent[]   @relation("AuditActor")
+  workLogEntries      WorkLogEntry[] @relation("WorkLogActor")
+  assignedAssets      Asset[]        @relation("AssetAssignedTo")
+
+  requestedTickets Ticket[]       @relation("TicketRequester")
+  assignedTickets  Ticket[]       @relation("TicketAssignee")
+  ticketComments   TicketComment[]
+  ticketEvents     TicketEvent[]  @relation("TicketEventActor")
+}
+
+model Department {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  assets Asset[]
+  tickets Ticket[]
+}
+
+model Location {
+  id        String   @id @default(cuid())
+  name      String
+  building  String?
+  room      String?
+  /// 1–16 for formal lab rooms; null for offices / closets
+  labNumber Int?
+  kind      LocationKind @default(OFFICE)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  assets Asset[]
+  tickets Ticket[]
+
+  @@unique([name, building, room])
+  @@index([kind, labNumber])
+}
+
+model AssetModel {
+  id           String   @id @default(cuid())
+  manufacturer String?
+  name         String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  assets Asset[]
+
+  @@unique([manufacturer, name])
+}
+
+model StatusLabel {
+  id        String      @id @default(cuid())
+  name      String      @unique
+  status    AssetStatus
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  assets Asset[]
+}
+
+model Asset {
+  id             String      @id @default(cuid())
+  assetTag       String      @unique
+  /// Workstation seat / terminal label (labs); optional for printers, UPS, etc.
+  terminalNumber String?
+  ipAddress      String?
+  serialNumber   String
+  hostname       String?
+  /// Friendly label shown in lists (e.g. "Rack UPS #2")
+  displayName    String?
+  category       AssetCategory @default(LAB_DESKTOP)
+  osVersion      String?
+  cpu            String?
+  ramGb          Int?
+  storageGb      Int?
+  gpu            String?
+  macAddress     String?
+  specsJson      Json?
+  purchaseDate       DateTime?
+  warrantyExpiresAt  DateTime?
+  lastServiceAt      DateTime?
+  nextServiceDueAt   DateTime?
+  internalNotes      String?   @db.Text
+
+  statusId     String?
+  status       StatusLabel? @relation(fields: [statusId], references: [id], onDelete: SetNull)
+
+  departmentId String
+  department   Department  @relation(fields: [departmentId], references: [id], onDelete: Restrict)
+
+  locationId String
+  location   Location @relation(fields: [locationId], references: [id], onDelete: Restrict)
+
+  modelId String?
+  model   AssetModel? @relation(fields: [modelId], references: [id], onDelete: SetNull)
+
+  assignedType AssignedType?
+  assignedToId String?
+  assignedTo   User?        @relation("AssetAssignedTo", fields: [assignedToId], references: [id], onDelete: SetNull)
+
+  lastCheckout     DateTime?
+  lastCheckin      DateTime?
+  expectedCheckin  DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  auditEvents   AuditEvent[]
+  workOrders    WorkOrder[]
+  workLogEntries WorkLogEntry[]
+  tickets       Ticket[]
+
+  @@index([locationId, departmentId])
+  @@index([assignedToId])
+  @@index([category])
+}
+
+model Ticket {
+  id          String         @id @default(cuid())
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  title       String
+  description String?        @db.Text
+
+  status    TicketStatus   @default(OPEN)
+  priority  TicketPriority @default(NORMAL)
+  source    TicketSource   @default(WEB)
+
+  requesterUserId String
+  requester       User   @relation("TicketRequester", fields: [requesterUserId], references: [id], onDelete: Restrict)
+
+  assigneeUserId String?
+  assignee       User?  @relation("TicketAssignee", fields: [assigneeUserId], references: [id], onDelete: SetNull)
+
+  assetId String?
+  asset   Asset? @relation(fields: [assetId], references: [id], onDelete: SetNull)
+
+  locationId String?
+  location   Location? @relation(fields: [locationId], references: [id], onDelete: SetNull)
+
+  departmentId String?
+  department   Department? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+
+  dueAt      DateTime?
+  resolvedAt DateTime?
+  closedAt   DateTime?
+
+  comments TicketComment[]
+  events   TicketEvent[]
+
+  @@index([status, priority, updatedAt])
+  @@index([assigneeUserId])
+  @@index([assetId])
+  @@index([locationId])
+}
+
+model TicketComment {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+
+  ticketId String
+  ticket   Ticket  @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  authorUserId String
+  author       User @relation(fields: [authorUserId], references: [id], onDelete: Restrict)
+
+  body String @db.Text
+  isInternal Boolean @default(false)
+}
+
+model TicketEvent {
+  id        String          @id @default(cuid())
+  createdAt DateTime        @default(now())
+  type      TicketEventType
+
+  ticketId String
+  ticket   Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  actorUserId String?
+  actor       User? @relation("TicketEventActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  fromStatus   TicketStatus?
+  toStatus     TicketStatus?
+  fromPriority TicketPriority?
+  toPriority   TicketPriority?
+  fromAssigneeUserId String?
+  toAssigneeUserId   String?
+
+  note String? @db.Text
+}
+
+model AuditEvent {
+  id          String         @id @default(cuid())
+  createdAt   DateTime       @default(now())
+  actionType  AuditActionType
+
+  actorUserId String
+  actor       User           @relation("AuditActor", fields: [actorUserId], references: [id], onDelete: Restrict)
+
+  itemType ItemType @default(ASSET)
+  itemId   String
+  asset    Asset    @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  targetType TargetType?
+  targetId   String?
+
+  note      String?
+  ip        String?
+  userAgent String?
+  source    String?
+}
+
+model WorkOrder {
+  id          String          @id @default(cuid())
+  assetId     String
+  asset       Asset           @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  title       String
+  description String?
+  type        WorkOrderType
+  status      WorkOrderStatus @default(OPEN)
+
+  requestedByUserId String
+  requestedBy       User   @relation("WorkOrderRequestedBy", fields: [requestedByUserId], references: [id], onDelete: Restrict)
+
+  assignedToUserId String?
+  assignedTo       User?  @relation("WorkOrderAssignedTo", fields: [assignedToUserId], references: [id], onDelete: SetNull)
+
+  openedAt DateTime @default(now())
+  dueAt    DateTime?
+  closedAt DateTime?
+
+  workLogEntries WorkLogEntry[]
+}
+
+model WorkLogEntry {
+  id           String          @id @default(cuid())
+  createdAt    DateTime        @default(now())
+  assetId      String
+  asset        Asset           @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  workOrderId  String?
+  workOrder    WorkOrder?      @relation(fields: [workOrderId], references: [id], onDelete: SetNull)
+
+  actionType   WorkLogActionType
+  performedByUserId String
+  performedBy  User            @relation("WorkLogActor", fields: [performedByUserId], references: [id], onDelete: Restrict)
+
+  pulledOutAt DateTime?
+  deployedAt  DateTime?
+  notes       String?
+  ip          String?
+  userAgent   String?
+  source      String?
+}
+
