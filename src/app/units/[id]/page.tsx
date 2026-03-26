@@ -13,6 +13,8 @@ import { isCheckoutableCategory } from "@/lib/asset";
 import { workLogActionLabel } from "@/lib/labels";
 import { WorkOrderQuickCreate } from "@/components/WorkOrderQuickCreate";
 
+export const dynamic = "force-dynamic";
+
 export default async function UnitDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const asset = await prisma.asset.findUnique({

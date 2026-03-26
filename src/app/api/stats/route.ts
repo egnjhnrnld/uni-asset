@@ -17,6 +17,7 @@ export async function GET() {
       prisma.asset.groupBy({
         by: ["category"],
         _count: { id: true },
+        orderBy: { category: "asc" },
       }),
       prisma.location.count({
         where: { kind: "LAB", labNumber: { not: null } },
@@ -37,7 +38,7 @@ export async function GET() {
     ]);
 
   const categoryCounts = Object.fromEntries(
-    byCategory.map((r) => [r.category, r._count.id])
+    byCategory.map((r) => [r.category, (r as any)._count?.id ?? 0])
   ) as Record<string, number>;
 
   const locationKindCounts = Object.fromEntries(

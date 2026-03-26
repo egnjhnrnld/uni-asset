@@ -2,6 +2,8 @@ import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { LocationKind } from "@prisma/client";
 
+export const dynamic = "force-dynamic";
+
 export default async function LabsPage() {
   const labs = await prisma.location.findMany({
     where: { kind: LocationKind.LAB, labNumber: { not: null } },

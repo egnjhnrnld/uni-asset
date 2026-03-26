@@ -10,6 +10,8 @@ import {
 import { CategoryBadge, LocationKindBadge, StatusBadge } from "@/components/Badges";
 import { assetCategoryLabel } from "@/lib/labels";
 
+export const dynamic = "force-dynamic";
+
 function buildQuery(base: Record<string, string | undefined>, overrides: Record<string, string | undefined>) {
   const next = { ...base, ...overrides };
   const sp = new URLSearchParams();

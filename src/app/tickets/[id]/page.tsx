@@ -5,6 +5,8 @@ import { TicketPriority, TicketStatus } from "@prisma/client";
 import { TicketCommentForm } from "@/components/TicketCommentForm";
 import { ResendTicketEmailButton } from "@/components/ResendTicketEmailButton";
 
+export const dynamic = "force-dynamic";
+
 export default async function TicketDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const ticket = await prisma.ticket.findUnique({

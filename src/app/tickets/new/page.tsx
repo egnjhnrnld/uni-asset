@@ -2,6 +2,8 @@ import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { TicketCreateForm } from "@/components/TicketCreateForm";
 
+export const dynamic = "force-dynamic";
+
 export default async function NewTicketPage({
   searchParams,
 }: {

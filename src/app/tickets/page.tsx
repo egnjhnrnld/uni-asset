@@ -3,6 +3,8 @@ import { prisma } from "@/lib/db";
 import { TicketPriority, TicketStatus } from "@prisma/client";
 import { Card, Input, Select } from "@/components/ui";
 
+export const dynamic = "force-dynamic";
+
 export default async function TicketsPage({
   searchParams,
 }: {

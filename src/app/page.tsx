@@ -4,6 +4,8 @@ import { prisma } from "@/lib/db";
 import { LocationKind } from "@prisma/client";
 import { assetCategoryLabel } from "@/lib/labels";
 
+export const dynamic = "force-dynamic";
+
 export default async function HomePage() {
   const session = await requireSession({ allowAnonymous: true });
 
@@ -15,6 +17,7 @@ export default async function HomePage() {
     prisma.asset.groupBy({
       by: ["category"],
       _count: { id: true },
+      orderBy: { category: "asc" },
     }),
     prisma.location.count({
       where: { kind: LocationKind.LAB, labNumber: { not: null } },
@@ -26,7 +29,9 @@ export default async function HomePage() {
     }),
   ]);
 
-  const topCategories = [...byCategory].sort((a, b) => b._count.id - a._count.id).slice(0, 6);
+  const topCategories = [...byCategory]
+    .sort((a, b) => ((b as any)._count?.id ?? 0) - ((a as any)._count?.id ?? 0))
+    .slice(0, 6);
 
   return (
     <main className="mx-auto max-w-6xl px-6 py-10">
@@ -87,7 +92,7 @@ export default async function HomePage() {
             {topCategories.map((row) => (
               <li key={row.category} className="flex items-center justify-between text-sm">
                 <span className="text-zinc-400">{assetCategoryLabel[row.category]}</span>
-                <span className="font-mono text-zinc-200">{row._count.id}</span>
+                <span className="font-mono text-zinc-200">{((row as any)._count?.id ?? 0) as number}</span>
               </li>
             ))}
           </ul>
