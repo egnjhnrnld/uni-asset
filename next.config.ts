@@ -1,8 +1,7 @@
-import type { NextConfig } from "next";
-
-const nextConfig: NextConfig = {
+/** @type {import('next').NextConfig} */
+const nextConfig = {
   experimental: {
-    // Keep defaults; explicit so it's easy to tune later.
+    serverComponentsExternalPackages: ['@prisma/client'],
   },
 };
 
